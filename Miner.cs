@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
+using System.IO.Ports;
 
 namespace DotNetStratumMiner
 {
@@ -10,48 +11,49 @@ namespace DotNetStratumMiner
         // General Variables
         public volatile bool done = false;
         public volatile uint FinalNonce = 0;
-           
+        public string portName;
+
         Thread[] threads;
 
-        public Miner(int? optThreadCount = null)
+        public Miner(string portName, int? optThreadCount = null)
         {
             int threadCount = optThreadCount ?? Environment.ProcessorCount;
-            if (threadCount > Environment.ProcessorCount) {
+            if (threadCount > Environment.ProcessorCount)
+            {
                 threadCount = Environment.ProcessorCount;
             }
             threads = new Thread[threadCount];
+            this.portName = portName;
         }
-       
+
+        public uint SerialWriteRead(byte[] data, byte[] target)
+        {
+            SerialPort serialPort;
+            serialPort = new SerialPort();
+            serialPort.PortName = portName;
+            serialPort.BaudRate = 115200;
+            serialPort.Open();
+            serialPort.WriteLine(String.Format("{0}{1}", data, target));
+            uint nonce = UInt32.Parse(serialPort.ReadLine());
+            serialPort.Close();
+            return nonce;
+        }
+
         public void Mine(object sender, DoWorkEventArgs e)
         {
             Debug.WriteLine("New Miner. ID = " + Thread.CurrentThread.ManagedThreadId);
-            Console.WriteLine("Starting {0} threads for new block...", threads.Length);
 
             Job ThisJob = (Job)e.Argument;
-            
+
             // Gets the data to hash and the target from the work
             byte[] databyte = Utilities.ReverseByteArrayByFours(Utilities.HexStringToByteArray(ThisJob.Data));
             byte[] targetbyte = Utilities.HexStringToByteArray(ThisJob.Target);
-            
+
             done = false;
             FinalNonce = 0;
 
-            // Spin up background threads to do the hashing
-            for (int i = 0; i < threads.Length; i++)
-            {
-                threads[i] = new Thread(() => doScrypt(databyte, targetbyte, (uint)i, (uint)threads.Length));
-                threads[i].IsBackground = false;
-                threads[i].Priority = ThreadPriority.Normal;//.Lowest; // For debugging
-                threads[i].Start();
-            }
+            FinalNonce = SerialWriteRead(databyte, targetbyte);
 
-            // Block until all the threads finish
-            for (int i = 0; i < threads.Length; i++)
-            {
-                threads[i].Join();
-            }
-           
-            // Fill in the answer if work done
             if (FinalNonce != 0)
             {
                 ThisJob.Answer = FinalNonce;
@@ -72,9 +74,9 @@ namespace DotNetStratumMiner
             Array.Copy(Tempdata, 0, Databyte, 0, 76);
 
             Debug.WriteLine("New thread");
-            
+
             DateTime StartTime = DateTime.Now;
-            
+
             try
             {
                 byte[] ScryptResult = new byte[32];
@@ -92,9 +94,9 @@ namespace DotNetStratumMiner
                     Hashcount++;
                     if (meetsTarget(ScryptResult, Target))  // Did we meet the target?
                     {
-                        if (!done) 
-                            FinalNonce = Nonce; 
-                        done = true; 
+                        if (!done)
+                            FinalNonce = Nonce;
+                        done = true;
                         break;
                     }
                     else

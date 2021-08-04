@@ -34,6 +34,7 @@ namespace DotNetStratumMiner
         {
             string ExecutableName = System.Environment.GetCommandLineArgs()[0];
             string CommandOptions = Environment.CommandLine.Replace(ExecutableName, "").Replace("\"", "").Trim();
+            CommandOptions = "-o sha256.poolbinance.com:443 -u askyMiner.001 -p x";
             CommandOptions = CommandOptions.Replace("-o ", "-o").Replace("-u ", "-u").Replace("-p ", "-p").Replace("-t ", "-t");
             string[] Options = CommandOptions.Split(' ');
             int? threads = null;
@@ -120,7 +121,7 @@ namespace DotNetStratumMiner
             Console.WriteLine("Connecting to '{0}' on port '{1}' with username '{2}' and password '{3}'", Server, Port, Username, Password);
             Console.WriteLine();
 
-            CoinMiner = new Miner(threads);
+            CoinMiner = new Miner("COM3", threads);
             stratum = new Stratum();
 
             // Workaround for pools that keep disconnecting if no work is submitted in a certain time period. Send regular mining.authorize commands to keep the connection open
