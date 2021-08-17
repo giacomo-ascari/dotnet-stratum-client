@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
 using System.IO.Ports;
+using System.Text;
 
 namespace DotNetStratumMiner
 {
@@ -13,37 +14,32 @@ namespace DotNetStratumMiner
         public volatile uint FinalNonce = 0;
         public string portName;
 
-        Thread[] threads;
-
-        public Miner(string portName, int? optThreadCount = null)
+        public Miner(string portName)
         {
-            int threadCount = optThreadCount ?? Environment.ProcessorCount;
-            if (threadCount > Environment.ProcessorCount)
-            {
-                threadCount = Environment.ProcessorCount;
-            }
-            threads = new Thread[threadCount];
             this.portName = portName;
         }
 
-        public uint SerialWriteRead(byte[] data, byte[] target)
+        public byte[] SerialWriteRead(byte[] data, byte[] target)
         {
+            byte[] ScryptResult = new byte[32];
             SerialPort serialPort;
             serialPort = new SerialPort();
             serialPort.PortName = portName;
             serialPort.BaudRate = 115200;
             serialPort.Open();
-            serialPort.WriteLine(String.Format("{0}{1}", data, target));
-            uint nonce = UInt32.Parse(serialPort.ReadLine());
+            Thread.Sleep(1);
+            serialPort.Write(String.Format("{0}", data));
+            ScryptResult = Encoding.ASCII.GetBytes(serialPort.ReadLine());
             serialPort.Close();
-            return nonce;
+            return ScryptResult;
         }
 
         public void Mine(object sender, DoWorkEventArgs e)
         {
-            Debug.WriteLine("New Miner. ID = " + Thread.CurrentThread.ManagedThreadId);
 
             Job ThisJob = (Job)e.Argument;
+            Console.WriteLine("New Miner");
+            Console.WriteLine("Data: {0}\nTarget: {1}", ThisJob.Data, ThisJob.Target);
 
             // Gets the data to hash and the target from the work
             byte[] databyte = Utilities.ReverseByteArrayByFours(Utilities.HexStringToByteArray(ThisJob.Data));
@@ -51,8 +47,33 @@ namespace DotNetStratumMiner
 
             done = false;
             FinalNonce = 0;
+            double Hashcount = 0;
+            uint Nonce = 0;
+            byte[] Databyte = new byte[80];
+            byte[] ScryptResult = new byte[32];
+            while (!done)
+            {
+                Databyte[76] = (byte)(Nonce >> 0);
+                Databyte[77] = (byte)(Nonce >> 8);
+                Databyte[78] = (byte)(Nonce >> 16);
+                Databyte[79] = (byte)(Nonce >> 24);
 
-            FinalNonce = SerialWriteRead(databyte, targetbyte);
+                ScryptResult = SerialWriteRead(databyte, targetbyte);
+                Console.Write(".");
+                Hashcount++;
+                if (meetsTarget(ScryptResult, targetbyte))
+                {
+                    if (!done)
+                        FinalNonce = Nonce;
+                    done = true;
+                    break;
+                }
+                else
+                {
+                    Nonce++;
+                }
+                    
+            }
 
             if (FinalNonce != 0)
             {
@@ -60,57 +81,12 @@ namespace DotNetStratumMiner
                 e.Result = ThisJob;
             }
             else
+            {
                 e.Result = null;
-
-            Debug.WriteLine("Miner ID {0} finished", Thread.CurrentThread.ManagedThreadId);
-        }
-
-        // Reference: https://github.com/replicon/Replicon.Cryptography.SCrypt
-        public void doScrypt(byte[] Tempdata, byte[] Target, uint Nonce, uint Increment)
-        {
-            double Hashcount = 0;
-
-            byte[] Databyte = new byte[80];
-            Array.Copy(Tempdata, 0, Databyte, 0, 76);
-
-            Debug.WriteLine("New thread");
-
-            DateTime StartTime = DateTime.Now;
-
-            try
-            {
-                byte[] ScryptResult = new byte[32];
-
-                // Loop until done is set or we meet the target
-                while (!done)
-                {
-                    Databyte[76] = (byte)(Nonce >> 0);
-                    Databyte[77] = (byte)(Nonce >> 8);
-                    Databyte[78] = (byte)(Nonce >> 16);
-                    Databyte[79] = (byte)(Nonce >> 24);
-
-                    ScryptResult = Replicon.Cryptography.SCrypt.SCrypt.DeriveKey(Databyte, Databyte, 1024, 1, 1, 32);
-
-                    Hashcount++;
-                    if (meetsTarget(ScryptResult, Target))  // Did we meet the target?
-                    {
-                        if (!done)
-                            FinalNonce = Nonce;
-                        done = true;
-                        break;
-                    }
-                    else
-                        Nonce += Increment; // If not, increment the nonce and try again
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                FinalNonce = 0;
             }
 
-            double Elapsedtime = (DateTime.Now - StartTime).TotalMilliseconds;
-            Console.WriteLine("Thread finished - {0:0} hashes in {1:0.00} ms. Speed: {2:0.00} kHash/s", Hashcount, Elapsedtime, Hashcount / Elapsedtime);
+            Console.WriteLine("FinalNonce: {0}", FinalNonce);
+            Console.WriteLine("Miner finished");
         }
 
         public bool meetsTarget(byte[] hash, byte[] target)

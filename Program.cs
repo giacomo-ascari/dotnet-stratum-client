@@ -21,6 +21,7 @@ namespace DotNetStratumMiner
         private static int Port = 0;
         private static string Username = "";
         private static string Password = "";
+        private static string ComName = "";
 
         private static System.Timers.Timer KeepaliveTimer;
         
@@ -34,18 +35,17 @@ namespace DotNetStratumMiner
         {
             string ExecutableName = System.Environment.GetCommandLineArgs()[0];
             string CommandOptions = Environment.CommandLine.Replace(ExecutableName, "").Replace("\"", "").Trim();
-            CommandOptions = "-o sha256.poolbinance.com:443 -u askyMiner.001 -p x";
-            CommandOptions = CommandOptions.Replace("-o ", "-o").Replace("-u ", "-u").Replace("-p ", "-p").Replace("-t ", "-t");
+            //CommandOptions = "-o sha256.poolbinance.com:443 -u askyMiner.001 -p x -c COM3";
+            CommandOptions = CommandOptions.Replace("-o ", "-o").Replace("-u ", "-u").Replace("-p ", "-p").Replace("-c ", "-c");
             string[] Options = CommandOptions.Split(' ');
-            int? threads = null;
 
             if (CommandOptions.Length == 0 || Options[0] == "-h")
             {
-                Console.WriteLine("-o URL         URL of mining server (e.g. tcp://megahash.wemineltc.com:3333)");
-                Console.WriteLine("-u USERNAME    Username for mining server");
-                Console.WriteLine("-p PASSWORD    Password for mining server");
-                Console.WriteLine("-h             Display this help text and exit");
-                Console.WriteLine("-t             Threads");
+                Console.WriteLine("-o URL           URL of mining server (e.g. tcp://megahash.wemineltc.com:3333)");
+                Console.WriteLine("-u USERNAME      Username for mining server");
+                Console.WriteLine("-p PASSWORD      Password for mining server");
+                Console.WriteLine("-c serial COM    Serial COM name (e.g. COM3)");
+                Console.WriteLine("-h               Display this help text and exit");
                 Environment.Exit(-1);
             }
 
@@ -86,8 +86,8 @@ namespace DotNetStratumMiner
                     case "-h":
                         break;
 
-                    case "-t":
-                        threads = Convert.ToInt32(arg.Replace("-t", "").Trim());
+                    case "-c":
+                        ComName = arg.Replace("-c", "").Trim();
                         break;
 
                     default:
@@ -118,10 +118,10 @@ namespace DotNetStratumMiner
                 Environment.Exit(-1);
             }
 
-            Console.WriteLine("Connecting to '{0}' on port '{1}' with username '{2}' and password '{3}'", Server, Port, Username, Password);
+            Console.WriteLine("Connecting to '{0}' on port '{1}' with username '{2}' and password '{3}'. Fpga on serial '{4}'", Server, Port, Username, Password, ComName);
             Console.WriteLine();
 
-            CoinMiner = new Miner("COM3", threads);
+            CoinMiner = new Miner(ComName);
             stratum = new Stratum();
 
             // Workaround for pools that keep disconnecting if no work is submitted in a certain time period. Send regular mining.authorize commands to keep the connection open
@@ -257,7 +257,6 @@ namespace DotNetStratumMiner
             if (ThisJob.CleanJobs)
             {
                 Console.WriteLine("Stratum detected a new block. Stopping old threads.");
-
                 IncomingJobs.Clear();
                 CoinMiner.done = true;
             }
