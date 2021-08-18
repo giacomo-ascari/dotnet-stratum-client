@@ -9,6 +9,8 @@ namespace DotNetStratumMiner
 {
     class Miner
     {
+        private bool _wait=true;
+        private byte[] ScryptResult = new byte[32];
         // General Variables
         public volatile bool done = false;
         public volatile uint FinalNonce = 0;
@@ -19,19 +21,45 @@ namespace DotNetStratumMiner
             this.portName = portName;
         }
 
-        public byte[] SerialWriteRead(byte[] data, byte[] target)
+        public void SerialWriteRead(string data, byte[] target)
         {
             byte[] ScryptResult = new byte[32];
             SerialPort serialPort;
-            serialPort = new SerialPort();
-            serialPort.PortName = portName;
-            serialPort.BaudRate = 115200;
+            serialPort = new SerialPort(portName)
+            {
+                BaudRate = 115200,
+                DataBits = 8,
+                Parity = Parity.None,
+                StopBits = StopBits.One,
+                Handshake = Handshake.None
+            };
+            serialPort.DataReceived += new SerialDataReceivedEventHandler(readData);
+            serialPort.ErrorReceived += SerialPort_ErrorReceived;
             serialPort.Open();
             Thread.Sleep(1);
-            serialPort.Write(String.Format("{0}", data));
-            ScryptResult = Encoding.ASCII.GetBytes(serialPort.ReadLine());
+            serialPort.WriteLine(String.Format("{0}", data));
+            Console.WriteLine("prova");
+            while (_wait) ;
+            _wait = true;
             serialPort.Close();
-            return ScryptResult;
+            return;
+        }
+
+        private void SerialPort_ErrorReceived(object sender, SerialErrorReceivedEventArgs e)
+        {
+            Console.WriteLine(e.EventType);
+        }
+
+        private void readData(object sender, SerialDataReceivedEventArgs e)
+        {
+            SerialPort port = (SerialPort)sender;
+            string data = port.ReadLine();
+            if (data.Length == 64)
+            {
+                ScryptResult = Encoding.ASCII.GetBytes(data);
+                Console.WriteLine($"DATA RECEIVED: {data}");
+                _wait = false;
+            }
         }
 
         public void Mine(object sender, DoWorkEventArgs e)
@@ -50,7 +78,7 @@ namespace DotNetStratumMiner
             double Hashcount = 0;
             uint Nonce = 0;
             byte[] Databyte = new byte[80];
-            byte[] ScryptResult = new byte[32];
+            //byte[] ScryptResult = new byte[32];
             while (!done)
             {
                 Databyte[76] = (byte)(Nonce >> 0);
@@ -58,7 +86,7 @@ namespace DotNetStratumMiner
                 Databyte[78] = (byte)(Nonce >> 16);
                 Databyte[79] = (byte)(Nonce >> 24);
 
-                ScryptResult = SerialWriteRead(databyte, targetbyte);
+                SerialWriteRead(ThisJob.Data, targetbyte);
                 Console.Write(".");
                 Hashcount++;
                 if (meetsTarget(ScryptResult, targetbyte))
