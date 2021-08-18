@@ -54,9 +54,11 @@ namespace DotNetStratumMiner
         {
             SerialPort port = (SerialPort)sender;
             string data = port.ReadLine();
+            data = "9c63289869bb8999cac6a36d93813610b5041d568021249aa1b0b3e3ed4ff88d";
             if (data.Length == 64)
             {
-                ScryptResult = Encoding.ASCII.GetBytes(data);
+                uint num = uint.Parse(data, System.Globalization.NumberStyles.AllowHexSpecifier);
+                ScryptResult = BitConverter.GetBytes(num);
                 Console.WriteLine($"DATA RECEIVED: {data}");
                 _wait = false;
             }
