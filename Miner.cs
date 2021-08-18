@@ -38,7 +38,7 @@ namespace DotNetStratumMiner
             serialPort.Open();
             Thread.Sleep(1);
             serialPort.WriteLine(String.Format("{0}", data));
-            Console.WriteLine("prova");
+            //Console.WriteLine("prova");
             while (_wait) ;
             _wait = true;
             serialPort.Close();
@@ -54,11 +54,12 @@ namespace DotNetStratumMiner
         {
             SerialPort port = (SerialPort)sender;
             string data = port.ReadLine();
-            data = "9c63289869bb8999cac6a36d93813610b5041d568021249aa1b0b3e3ed4ff88d";
+            //data = "9c63289869bb8999cac6a36d93813610b5041d568021249aa1b0b3e3ed4ff88d";
             if (data.Length == 64)
             {
-                uint num = uint.Parse(data, System.Globalization.NumberStyles.AllowHexSpecifier);
-                ScryptResult = BitConverter.GetBytes(num);
+                //uint num = uint.Parse(data, System.Globalization.NumberStyles.AllowHexSpecifier);
+                //ScryptResult = BitConverter.GetBytes(num);
+                ScryptResult = Utilities.HexStringToByteArray(data);
                 Console.WriteLine($"DATA RECEIVED: {data}");
                 _wait = false;
             }
@@ -88,7 +89,7 @@ namespace DotNetStratumMiner
                 Databyte[78] = (byte)(Nonce >> 16);
                 Databyte[79] = (byte)(Nonce >> 24);
 
-                SerialWriteRead(ThisJob.Data, targetbyte);
+                SerialWriteRead(Utilities.ByteArrayToHexString(Databyte), targetbyte);
                 Console.Write(".");
                 Hashcount++;
                 if (meetsTarget(ScryptResult, targetbyte))
