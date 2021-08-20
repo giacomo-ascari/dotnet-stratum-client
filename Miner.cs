@@ -10,10 +10,9 @@ namespace DotNetStratumMiner
     class Miner
     {
         private SerialPort serialPort;
-        private bool _wait=true;
         private byte[] ScryptResult = new byte[32];
         // General Variables
-        public volatile bool done = false;
+        public volatile bool done = false, newBlock=false;
         public volatile uint FinalNonce = 0;
         public string portName;
 
@@ -38,13 +37,24 @@ namespace DotNetStratumMiner
             //Thread.Sleep(1);
             //data = "0100000081cd02ab7e569e8bcd9317e2fe99f2de44d49ab2b8851ba4a308000000000000e320b6c2fffc8d750423db8b1eb942ae710e951ed797f7affc8892b0f1fc122bc7f5d74df2b9441a";
             //target = "000000000000000000000000000000000000000000000000000000000000000f";
+            //serialPort.Write(data);
+            //serialPort.Write(target);
             serialPort.WriteLine(String.Format("{0}{1}", data, target));
-            Console.WriteLine(String.Format("data: {0}\ntarget: {1}", data, target));
+            //Console.WriteLine(String.Format("data: {0}\ntarget: {1}", data, target));
             Console.WriteLine($"Started: {DateTime.Now}");
             //Console.WriteLine(String.Format("{0}", data));
             //Console.WriteLine("prova");
-            while (_wait) ;
-            _wait = true;
+            while (!done)
+            {
+                if (newBlock)
+                {
+                    serialPort.WriteLine("<nb>");
+                    Console.WriteLine("New block: interrupt");
+                    newBlock = false;
+                    break;
+                }
+            }
+            done = false;
             return;
         }
 
@@ -68,7 +78,7 @@ namespace DotNetStratumMiner
                 FinalNonce = uint.Parse(data.Substring(7, 8), System.Globalization.NumberStyles.HexNumber);
                 Console.WriteLine($"DATA RECEIVED: {data}");
                 //Console.WriteLine(FinalNonce);
-                _wait = false;
+                done = true;
             }
         }
 
@@ -79,18 +89,19 @@ namespace DotNetStratumMiner
             Console.WriteLine("Data: {0}\nTarget: {1}", ThisJob.Data, ThisJob.Target);
 
             // Gets the data to hash and the target from the work
-            byte[] databyte = Utilities.ReverseByteArrayByFours(Utilities.HexStringToByteArray(ThisJob.Data));
-            byte[] targetbyte = Utilities.HexStringToByteArray(ThisJob.Target);
+            //byte[] databyte = Utilities.ReverseByteArrayByFours(Utilities.HexStringToByteArray(ThisJob.Data));
+            //byte[] targetbyte = Utilities.HexStringToByteArray(ThisJob.Target);
 
             done = false;
+            newBlock = false;
             FinalNonce = 0;
-            double Hashcount = 0;
-            uint Nonce = 0;
-            byte[] Databyte = new byte[80];
+            //double Hashcount = 0;
+            //uint Nonce = 0;
+            //byte[] Databyte = new byte[80];
             //byte[] ScryptResult = new byte[32];
-            while (!done)
-            {
-                databyte.CopyTo(Databyte, 0);
+            //while (!done)
+            //{
+                //databyte.CopyTo(Databyte, 0);
                 //BitConverter.GetBytes(Nonce).CopyTo(Databyte, Databyte.Length-4);
                 //Databyte[76] = (byte)(Nonce >> 0);
                 //Databyte[77] = (byte)(Nonce >> 8);
@@ -103,7 +114,7 @@ namespace DotNetStratumMiner
                     serialPort.Open();
                 }
                 SerialWriteRead(ThisJob.Data, ThisJob.Target);
-                done = true;
+                //done = true;
                 //Console.Write(".");
                 //Hashcount++;
                 //if (meetsTarget(ScryptResult, targetbyte))
@@ -118,7 +129,7 @@ namespace DotNetStratumMiner
                 //    Nonce++;
                 //}
                     
-            }
+            //}
 
             if (FinalNonce != 0)
             {

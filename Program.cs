@@ -258,7 +258,7 @@ namespace DotNetStratumMiner
             {
                 Console.WriteLine("Stratum detected a new block. Stopping old threads.");
                 IncomingJobs.Clear();
-                CoinMiner.done = true;
+                CoinMiner.newBlock = true;
             }
 
             // Add the new job to the queue
