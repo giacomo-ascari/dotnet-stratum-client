@@ -12,7 +12,7 @@ namespace DotNetStratumMiner
         private SerialPort serialPort;
         private byte[] ScryptResult = new byte[32];
         // General Variables
-        public volatile bool done = false, newBlock=false;
+        public volatile bool done = false, newBlock;
         public volatile uint FinalNonce = 0;
         public string portName;
 
@@ -39,18 +39,21 @@ namespace DotNetStratumMiner
             //target = "000000000000000000000000000000000000000000000000000000000000000f";
             //serialPort.Write(data);
             //serialPort.Write(target);
-            serialPort.WriteLine(String.Format("{0}{1}", data, target));
+            serialPort.Write(String.Format("<DTA>{0}\n<TRG>{1}\n", data, target));
+            Console.Write(String.Format("<DTA>{0}\n<TRG>{1}\n", data, target));
+            Console.WriteLine(serialPort.BytesToWrite);
             //Console.WriteLine(String.Format("data: {0}\ntarget: {1}", data, target));
             Console.WriteLine($"Started: {DateTime.Now}");
             //Console.WriteLine(String.Format("{0}", data));
             //Console.WriteLine("prova");
+            //newBlock = true;
             while (!done)
             {
                 if (newBlock)
                 {
-                    serialPort.WriteLine("<nb>");
-                    Console.WriteLine("New block: interrupt");
-                    newBlock = false;
+                    serialPort.Write("<NBF>\n");
+                    while (newBlock) ; //waits for the fpga to be acknowledged
+                    //Console.WriteLine("ack");
                     break;
                 }
             }
@@ -67,18 +70,24 @@ namespace DotNetStratumMiner
         {
             SerialPort port = (SerialPort)sender;
             string data = port.ReadLine();
+            Console.Write(data+ " . ");
             //Console.WriteLine("data: "+data);
             //data = "9c63289869bb8999cac6a36d93813610b5041d568021249aa1b0b3e3ed4ff88d";
-            if (data.StartsWith("<nonce>"))
+            if (data.StartsWith("<NNC>"))
             {
                 Console.WriteLine($"Completed: {DateTime.Now}");
                 //uint num = uint.Parse(data, System.Globalization.NumberStyles.AllowHexSpecifier);
                 //ScryptResult = BitConverter.GetBytes(num);
                 //Console.WriteLine("nonce: " + data.Substring(7, 8));
-                FinalNonce = uint.Parse(data.Substring(7, 8), System.Globalization.NumberStyles.HexNumber);
+                FinalNonce = uint.Parse(data.Substring(5, 8), System.Globalization.NumberStyles.HexNumber);
                 Console.WriteLine($"DATA RECEIVED: {data}");
                 //Console.WriteLine(FinalNonce);
                 done = true;
+            }
+            else if(data == "<ACK>")
+            {
+                Console.WriteLine("ack received");
+                newBlock = false;
             }
         }
 
