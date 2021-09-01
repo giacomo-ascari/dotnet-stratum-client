@@ -11,10 +11,11 @@ namespace DotNetStratumMiner
     class Program
     {
         private static Miner CoinMiner;
+        private static Validator CoinValidator;
         private static int CurrentDifficulty;
         private static Queue<Job> IncomingJobs = new Queue<Job>();
         private static Stratum stratum;
-        private static BackgroundWorker worker;
+        private static BackgroundWorker worker, validatorWorker;
         private static int SharesSubmitted = 0;
         private static int SharesAccepted = 0;
         private static string Server = "";
@@ -31,6 +32,7 @@ namespace DotNetStratumMiner
             stratum.SendAUTHORIZE();
         }
 
+        // https://www.microsoft.com/en-us/download/confirmation.aspx?id=26999
         static void Main(string[] args)
         {
             string ExecutableName = System.Environment.GetCommandLineArgs()[0];
@@ -122,6 +124,7 @@ namespace DotNetStratumMiner
             Console.WriteLine();
 
             CoinMiner = new Miner(ComName);
+            CoinValidator = new Validator();
             stratum = new Stratum();
 
             // Workaround for pools that keep disconnecting if no work is submitted in a certain time period. Send regular mining.authorize commands to keep the connection open
@@ -172,7 +175,23 @@ namespace DotNetStratumMiner
             worker.DoWork += new DoWorkEventHandler(CoinMiner.Mine);
             worker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(CoinMinerCompleted);
             worker.RunWorkerAsync(ThisJob);
+
+            validatorWorker = new BackgroundWorker();
+            validatorWorker.DoWork += new DoWorkEventHandler(CoinValidator.Mine);
+            validatorWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(CoinValidatorCompleted);
+            validatorWorker.RunWorkerAsync(ThisJob);
         }
+
+        static void CoinValidatorCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            // If the miner returned a result, submit it
+            if (e.Result != null)
+            {
+                Job ThisJob = (Job)e.Result;
+                Console.WriteLine("Validotor says: " + ThisJob.ToString());
+            }
+        }
+
 
         static void CoinMinerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {

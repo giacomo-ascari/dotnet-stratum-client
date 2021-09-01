@@ -56,6 +56,7 @@ namespace DotNetStratumMiner
                     //Console.WriteLine("ack");
                     break;
                 }
+                Thread.Sleep(50);
             }
             done = false;
             return;
